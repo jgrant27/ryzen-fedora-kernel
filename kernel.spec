@@ -58,7 +58,7 @@ Summary: The Linux kernel
 %global zcpu `nproc --all`
 %endif
 
-# define buildid .local
+%define buildid .zen3
 
 %if 0%{?fedora}
 %define primary_target fedora
@@ -202,7 +202,7 @@ Summary: The Linux kernel
 # Set debugbuildsenabled to 1 for production (build separate debug kernels)
 #  and 0 for rawhide (all kernels are debug kernels).
 # See also 'make debug' and 'make release'.
-%define debugbuildsenabled 1
+%define debugbuildsenabled 0
 
 %if 0%{?fedora}
 # Kernel headers are being split out into a separate package
@@ -278,6 +278,7 @@ Summary: The Linux kernel
 %define make_target bzImage
 %define image_install_path boot
 
+#define KVERREL %{version}-%{release}.ZEN2
 %define KVERREL %{version}-%{release}.%{_target_cpu}
 %define KVERREL_RE %(echo %KVERREL | sed 's/+/[+]/g')
 %define hdrarch %_target_cpu
@@ -360,10 +361,10 @@ Summary: The Linux kernel
 
 %if 0%{?fedora}
 # don't do debug builds on anything but i686 and x86_64
-%ifnarch i686 x86_64
+#%ifnarch i686 x86_64
 %define with_debug 0
 %endif
-%endif
+#%endif
 
 # don't build noarch kernels or headers (duh)
 %ifarch noarch
@@ -395,16 +396,15 @@ Summary: The Linux kernel
 
 # Per-arch tweaks
 
-%ifarch i686
-%define asmarch x86
-%define hdrarch i386
-%define all_arch_configs kernel-%{version}-i?86*.config
-%define kernel_image arch/x86/boot/bzImage
-%endif
-
 %ifarch x86_64
 %define asmarch x86
 %define all_arch_configs kernel-%{version}-x86_64*.config
+%define kernel_image arch/x86/boot/bzImage
+%endif
+
+%ifarch zen2
+%define asmarch x86
+%define all_arch_configs kernel-%{version}-zen2*.config
 %define kernel_image arch/x86/boot/bzImage
 %endif
 
@@ -690,7 +690,6 @@ Source79: parallel_xz.sh
 
 Source80: filter-x86_64.sh.fedora
 Source81: filter-armv7hl.sh.fedora
-Source82: filter-i686.sh.fedora
 Source83: filter-aarch64.sh.fedora
 Source86: filter-ppc64le.sh.fedora
 Source87: filter-s390x.sh.fedora
@@ -698,7 +697,6 @@ Source89: filter-modules.sh.fedora
 
 Source90: filter-x86_64.sh.rhel
 Source91: filter-armv7hl.sh.rhel
-Source92: filter-i686.sh.rhel
 Source93: filter-aarch64.sh.rhel
 Source96: filter-ppc64le.sh.rhel
 Source97: filter-s390x.sh.rhel
@@ -721,8 +719,6 @@ Source39: kernel-armv7hl-fedora.config
 Source40: kernel-armv7hl-debug-fedora.config
 Source41: kernel-armv7hl-lpae-fedora.config
 Source42: kernel-armv7hl-lpae-debug-fedora.config
-Source43: kernel-i686-fedora.config
-Source44: kernel-i686-debug-fedora.config
 Source45: kernel-ppc64le-fedora.config
 Source46: kernel-ppc64le-debug-fedora.config
 Source47: kernel-s390x-fedora.config
@@ -859,6 +855,9 @@ Patch107: 0001-drm-nouveau-kms-handle-mDP-connectors.patch
 Patch108: media-pwc-fix-the-urb-buffer-allocation.patch
 
 Patch109: 0001-Revert-drm-amd-display-Update-NV1x-SR-latency-values.patch
+
+Patch999: 0999-ryzen.patch
+
 
 # END OF PATCH DEFINITIONS
 
@@ -1327,7 +1326,7 @@ if [ "%{patches}" != "%%{patches}" ] ; then
   done
 fi 2>/dev/null
 
-patch_command='patch -p1 -F1 -s'
+patch_command='patch -p1 -F10 -s'
 ApplyPatch()
 {
   local patch=$1
@@ -1468,19 +1467,19 @@ cp %{SOURCE12} .
 # Update vanilla to the latest upstream.
 # (non-released_kernel case only)
 %if 0%{?rcrev}
-    xzcat %{SOURCE5000} | patch -p1 -F1 -s
+    xzcat %{SOURCE5000} | patch -p1 -F10 -s
 %if 0%{?gitrev}
-    xzcat %{SOURCE5001} | patch -p1 -F1 -s
+    xzcat %{SOURCE5001} | patch -p1 -F10 -s
 %endif
 %else
 # pre-{base_sublevel+1}-rc1 case
 %if 0%{?gitrev}
-    xzcat %{SOURCE5000} | patch -p1 -F1 -s
+    xzcat %{SOURCE5000} | patch -p1 -F10 -s
 %endif
 %endif
     git init
-    git config user.email "kernel-team@fedoraproject.org"
-    git config user.name "Fedora Kernel Team"
+    git config user.email "jay@imagine27.com"
+    git config user.name "Justin Grant"
     git config gc.auto 0
     git add .
     git commit -a -q -m "baseline"
@@ -1504,8 +1503,8 @@ cp -al vanilla-%{vanillaversion} linux-%{KVERREL}
 cd linux-%{KVERREL}
 if [ ! -d .git ]; then
     git init
-    git config user.email "kernel-team@fedoraproject.org"
-    git config user.name "Fedora Kernel Team"
+    git config user.email "jay@imagine27.com"
+    git config user.name "Justin Grant"
     git config gc.auto 0
     git add .
     git commit -a -q -m "baseline"
@@ -1515,7 +1514,7 @@ fi
 # released_kernel with possible stable updates
 %if 0%{?stable_base}
 # This is special because the kernel spec is hell and nothing is consistent
-xzcat %{SOURCE5000} | patch -p1 -F1 -s
+xzcat %{SOURCE5000} | patch -p1 -F10 -s
 git commit -a -m "Stable update"
 %endif
 
@@ -1543,22 +1542,22 @@ touch .scmversion
 # *** ERROR: ambiguous python shebang in /usr/bin/kvm_stat: #!/usr/bin/python. Change it to python3 (or python2) explicitly.
 # We patch all sources below for which we got a report/error.
 pathfix.py -i "%{__python3} %{py3_shbang_opts}" -p -n \
-	tools/kvm/kvm_stat/kvm_stat \
-	scripts/show_delta \
-	scripts/diffconfig \
-	scripts/bloat-o-meter \
-	scripts/jobserver-exec \
-	tools/perf/tests/attr.py \
-	tools/perf/scripts/python/stat-cpi.py \
-	tools/perf/scripts/python/sched-migration.py \
-	Documentation \
-	scripts/clang-tools
+    tools/kvm/kvm_stat/kvm_stat \
+    scripts/show_delta \
+    scripts/diffconfig \
+    scripts/bloat-o-meter \
+    scripts/jobserver-exec \
+    tools/perf/tests/attr.py \
+    tools/perf/scripts/python/stat-cpi.py \
+    tools/perf/scripts/python/sched-migration.py \
+    Documentation \
+    scripts/clang-tools
 
 # only deal with configs if we are going to build for the arch
 %ifnarch %nobuildarches
 
 if [ -L configs ]; then
-	rm -f configs
+    rm -f configs
 fi
 # Deal with configs stuff
 mkdir configs
@@ -1597,7 +1596,7 @@ done
 cp %{SOURCE52} .
 OPTS=""
 %if %{with_configchecks}
-	OPTS="$OPTS -w -n -c"
+    OPTS="$OPTS -w -n -c"
 %endif
 ./process_configs.sh $OPTS kernel %{rpmversion}
 
@@ -1665,7 +1664,7 @@ BuildKernel() {
 
     DoModules=1
     if [ "$Flavour" = "zfcpdump" ]; then
-	    DoModules=0
+        DoModules=0
     fi
 
     # Pick the right config file for the kernel we're building
@@ -1723,7 +1722,7 @@ BuildKernel() {
     perl -p -i -e "s/^CONFIG_BUILD_SALT.*/CONFIG_BUILD_SALT=\"%{KVERREL}\"/" .config
     %{make} ARCH=$Arch KCFLAGS="$KCFLAGS" WITH_GCOV="%{?with_gcov}" %{?_smp_mflags} $MakeTarget %{?sparse_mflags} %{?kernel_mflags}
     if [ $DoModules -eq 1 ]; then
-	%{make} ARCH=$Arch KCFLAGS="$KCFLAGS" WITH_GCOV="%{?with_gcov}" %{?_smp_mflags} modules %{?sparse_mflags} || exit 1
+    %{make} ARCH=$Arch KCFLAGS="$KCFLAGS" WITH_GCOV="%{?with_gcov}" %{?_smp_mflags} modules %{?sparse_mflags} || exit 1
     fi
 
     mkdir -p $RPM_BUILD_ROOT/%{image_install_path}
@@ -1780,12 +1779,12 @@ BuildKernel() {
     %endif
     %ifarch s390x ppc64le
     if [ -x /usr/bin/rpm-sign ]; then
-	rpm-sign --key "%{pesign_name_0}" --lkmsign $SignImage --output vmlinuz.signed
+    rpm-sign --key "%{pesign_name_0}" --lkmsign $SignImage --output vmlinuz.signed
     elif [ $DoModules -eq 1 ]; then
-	chmod +x scripts/sign-file
-	./scripts/sign-file -p sha256 certs/signing_key.pem certs/signing_key.x509 $SignImage vmlinuz.signed
+    chmod +x scripts/sign-file
+    ./scripts/sign-file -p sha256 certs/signing_key.pem certs/signing_key.x509 $SignImage vmlinuz.signed
     else
-	mv $SignImage vmlinuz.signed
+    mv $SignImage vmlinuz.signed
     fi
     %endif
 
@@ -1812,9 +1811,9 @@ BuildKernel() {
     cp $RPM_BUILD_ROOT/%{image_install_path}/.vmlinuz-$KernelVer.hmac $RPM_BUILD_ROOT/lib/modules/$KernelVer/.vmlinuz.hmac
 
     if [ $DoModules -eq 1 ]; then
-	# Override $(mod-fw) because we don't want it to install any firmware
-	# we'll get it from the linux-firmware package and we don't want conflicts
-	%{make} %{?_smp_mflags} ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT %{?_smp_mflags} modules_install KERNELRELEASE=$KernelVer mod-fw=
+    # Override $(mod-fw) because we don't want it to install any firmware
+    # we'll get it from the linux-firmware package and we don't want conflicts
+    %{make} %{?_smp_mflags} ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT %{?_smp_mflags} modules_install KERNELRELEASE=$KernelVer mod-fw=
     fi
 
 %if %{with_gcov}
@@ -1832,7 +1831,7 @@ BuildKernel() {
         if [ -s ldconfig-kernel.conf ]; then
              install -D -m 444 ldconfig-kernel.conf \
                 $RPM_BUILD_ROOT/etc/ld.so.conf.d/kernel-$KernelVer.conf
-	     echo /etc/ld.so.conf.d/kernel-$KernelVer.conf >> ../kernel${Flavour:+-${Flavour}}-ldsoconf.list
+         echo /etc/ld.so.conf.d/kernel-$KernelVer.conf >> ../kernel${Flavour:+-${Flavour}}-ldsoconf.list
         fi
 
         rm -rf $RPM_BUILD_ROOT/lib/modules/$KernelVer/vdso/.build-id
@@ -2100,32 +2099,32 @@ BuildKernel() {
     rm -rf lib/modules/$KernelVer/{extra,internal}
 
     if [ $DoModules -eq 1 ]; then
-	# Find all the module files and filter them out into the core and
-	# modules lists.  This actually removes anything going into -modules
-	# from the dir.
-	find lib/modules/$KernelVer/kernel -name *.ko | sort -n > modules.list
-	cp $RPM_SOURCE_DIR/filter-*.sh .
-	./filter-modules.sh modules.list %{_target_cpu}
-	rm filter-*.sh
+    # Find all the module files and filter them out into the core and
+    # modules lists.  This actually removes anything going into -modules
+    # from the dir.
+    find lib/modules/$KernelVer/kernel -name *.ko | sort -n > modules.list
+    cp $RPM_SOURCE_DIR/filter-*.sh .
+    ./filter-modules.sh modules.list %{_target_cpu}
+    rm filter-*.sh
 
-	# Run depmod on the resulting module tree and make sure it isn't broken
-	depmod -b . -aeF ./System.map $KernelVer &> depmod.out
-	if [ -s depmod.out ]; then
-	    echo "Depmod failure"
-	    cat depmod.out
-	    exit 1
-	else
-	    rm depmod.out
-	fi
+    # Run depmod on the resulting module tree and make sure it isn't broken
+    depmod -b . -aeF ./System.map $KernelVer &> depmod.out
+    if [ -s depmod.out ]; then
+        echo "Depmod failure"
+        cat depmod.out
+        exit 1
     else
-	# Ensure important files/directories exist to let the packaging succeed
-	echo '%%defattr(-,-,-)' > modules.list
-	echo '%%defattr(-,-,-)' > k-d.list
-	mkdir -p lib/modules/$KernelVer/kernel
-	# Add files usually created by make modules, needed to prevent errors
-	# thrown by depmod during package installation
-	touch lib/modules/$KernelVer/modules.order
-	touch lib/modules/$KernelVer/modules.builtin
+        rm depmod.out
+    fi
+    else
+    # Ensure important files/directories exist to let the packaging succeed
+    echo '%%defattr(-,-,-)' > modules.list
+    echo '%%defattr(-,-,-)' > k-d.list
+    mkdir -p lib/modules/$KernelVer/kernel
+    # Add files usually created by make modules, needed to prevent errors
+    # thrown by depmod during package installation
+    touch lib/modules/$KernelVer/modules.order
+    touch lib/modules/$KernelVer/modules.builtin
     fi
 
     # remove files that will be auto generated by depmod at rpm -i time
@@ -2156,9 +2155,9 @@ BuildKernel() {
 
 %if %{signmodules}
     if [ $DoModules -eq 1 ]; then
-	# Save the signing keys so we can sign the modules in __modsign_install_post
-	cp certs/signing_key.pem certs/signing_key.pem.sign${Flav}
-	cp certs/signing_key.x509 certs/signing_key.x509.sign${Flav}
+    # Save the signing keys so we can sign the modules in __modsign_install_post
+    cp certs/signing_key.pem certs/signing_key.pem.sign${Flav}
+    cp certs/signing_key.x509 certs/signing_key.x509.sign${Flav}
     fi
 %endif
 
@@ -2189,13 +2188,13 @@ BuildKernel() {
     %endif
     %ifarch s390x ppc64le
     if [ $DoModules -eq 1 ]; then
-	if [ -x /usr/bin/rpm-sign ]; then
-	    install -m 0644 %{secureboot_key_0} $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/%{signing_key_filename}
-	else
-	    install -m 0644 certs/signing_key.x509.sign${Flav} $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/kernel-signing-ca.cer
-	    openssl x509 -in certs/signing_key.pem.sign${Flav} -outform der -out $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/%{signing_key_filename}
-	    chmod 0644 $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/%{signing_key_filename}
-	fi
+    if [ -x /usr/bin/rpm-sign ]; then
+        install -m 0644 %{secureboot_key_0} $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/%{signing_key_filename}
+    else
+        install -m 0644 certs/signing_key.x509.sign${Flav} $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/kernel-signing-ca.cer
+        openssl x509 -in certs/signing_key.pem.sign${Flav} -outform der -out $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/%{signing_key_filename}
+        chmod 0644 $RPM_BUILD_ROOT%{_datadir}/doc/kernel-keys/$KernelVer/%{signing_key_filename}
+    fi
     fi
     %endif
 
@@ -2423,8 +2422,8 @@ HDR_ARCH_LIST='arm64 powerpc s390 x86'
 mkdir -p $RPM_BUILD_ROOT/usr/tmp-headers
 
 for arch in $HDR_ARCH_LIST; do
-	mkdir $RPM_BUILD_ROOT/usr/tmp-headers/arch-${arch}
-	make ARCH=${arch} INSTALL_HDR_PATH=$RPM_BUILD_ROOT/usr/tmp-headers/arch-${arch} headers_install
+    mkdir $RPM_BUILD_ROOT/usr/tmp-headers/arch-${arch}
+    make ARCH=${arch} INSTALL_HDR_PATH=$RPM_BUILD_ROOT/usr/tmp-headers/arch-${arch} headers_install
 done
 
 find $RPM_BUILD_ROOT/usr/tmp-headers \
@@ -2433,8 +2432,8 @@ find $RPM_BUILD_ROOT/usr/tmp-headers \
 
 # Copy all the architectures we care about to their respective asm directories
 for arch in $HDR_ARCH_LIST ; do
-	mkdir -p $RPM_BUILD_ROOT/usr/${arch}-linux-gnu/include
-	mv $RPM_BUILD_ROOT/usr/tmp-headers/arch-${arch}/include/* $RPM_BUILD_ROOT/usr/${arch}-linux-gnu/include/
+    mkdir -p $RPM_BUILD_ROOT/usr/${arch}-linux-gnu/include
+    mv $RPM_BUILD_ROOT/usr/tmp-headers/arch-${arch}/include/* $RPM_BUILD_ROOT/usr/${arch}-linux-gnu/include/
 done
 
 rm -rf $RPM_BUILD_ROOT/usr/tmp-headers
@@ -2578,8 +2577,8 @@ popd
 %if %{with_headers}
 # compute a content hash to export as Provides: kernel-headers-checksum
 HEADERS_CHKSUM=$(export LC_ALL=C; find $RPM_BUILD_ROOT/usr/include -type f -name "*.h" \
-			! -path $RPM_BUILD_ROOT/usr/include/linux/version.h | \
-		 sort | xargs cat | sha1sum - | cut -f 1 -d ' ');
+            ! -path $RPM_BUILD_ROOT/usr/include/linux/version.h | \
+         sort | xargs cat | sha1sum - | cut -f 1 -d ' ');
 # export the checksum via usr/include/linux/version.h, so the dynamic
 # find-provides can grab the hash to update it accordingly
 echo "#define KERNEL_HEADERS_CHECKSUM \"$HEADERS_CHKSUM\"" >> $RPM_BUILD_ROOT/usr/include/linux/version.h
